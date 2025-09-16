@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Social Media Hate Speech Detection</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f0f2f5;
+        }
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .post-form {
+            margin-bottom: 20px;
+        }
+        textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            resize: vertical;
+        }
+        .post-metadata {
+            margin: 10px 0;
+            display: flex;
+            gap: 10px;
+        }
+        .post-metadata input {
+            padding: 5px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        button {
+            background-color: #1877f2;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #166fe5;
+        }
+        .result-container {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 4px;
+        }
+        .safe {
+            background-color: #e6ffe6;
+            border: 1px solid #b3ffb3;
+        }
+        .hate {
+            background-color: #ffe6e6;
+            border: 1px solid #ffb3b3;
+        }
+        .metadata-display {
+            margin-top: 10px;
+            font-size: 0.9em;
+            color: #666;
+        }
+        .platform-select {
+            padding: 5px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Social Media Hate Speech Detection</h2>
+        <div class="post-form">
+            <textarea id="text" rows="4" placeholder="Enter your social media post here..."></textarea>
+            <div class="post-metadata">
+                <input type="text" id="username" placeholder="@username">
+                <select id="platform" class="platform-select">
+                    <option value="twitter">Twitter</option>
+                    <option value="facebook">Facebook</option>
+                    <option value="instagram">Instagram</option>
+                    <option value="reddit">Reddit</option>
+                </select>
+                <input type="text" id="reply_to" placeholder="Reply to @username (optional)">
+            </div>
+            <button onclick="checkText()">Analyze Post</button>
+        </div>
+        <div id="result-container" class="result-container">
+            <div id="result"></div>
+            <div id="metadata" class="metadata-display"></div>
+        </div>
+    </div>
+
+    <script>
+        async function checkText() {
+            try {
+                const text = document.getElementById("text").value;
+                const username = document.getElementById("username").value;
+                const platform = document.getElementById("platform").value;
+                const reply_to = document.getElementById("reply_to").value;
+
+                console.log('Sending request with:', { text, username, platform, reply_to });
+
+                const response = await fetch("http://localhost:5000/predict", {
+                    method: "POST",
+                    headers: { 
+                        "Content-Type": "application/json",
+                        "Accept": "application/json"
+                    },
+                    body: JSON.stringify({
+                        text: text,
+                        username: username,
+                        platform: platform,
+                        reply_to: reply_to,
+                        timestamp: new Date().toISOString()
+                    })
+                });
+
+                console.log('Response status:', response.status);
+                const data = await response.json();
+                console.log('Response data:', data);
+
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+
+                const resultContainer = document.getElementById("result-container");
+                resultContainer.className = `result-container ${data.prediction === "Hate/Offensive" ? "hate" : "safe"}`;
+
+                // Display the prediction
+                document.getElementById("result").innerHTML = `<strong>Prediction:</strong> ${data.prediction}`;
+
+                // Display metadata
+                const metadata = data.metadata;
+                const metadataHtml = `
+                    <strong>Analysis Details:</strong><br>
+                    Platform: ${metadata.platform}<br>
+                    ${metadata.hashtags.length > 0 ? `Hashtags: ${metadata.hashtags.join(', ')}<br>` : ''}
+                    ${metadata.mentions.length > 0 ? `Mentions: ${metadata.mentions.join(', ')}<br>` : ''}
+                    ${metadata.urls.length > 0 ? `Contains URLs: Yes<br>` : ''}
+                    Sentiment Score: ${Math.round(metadata.sentiment_score * 100) / 100}
+                `;
+                document.getElementById("metadata").innerHTML = metadataHtml;
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById("result").innerHTML = `<strong>Error:</strong> ${error.message}`;
+                document.getElementById("metadata").innerHTML = '';
+                document.getElementById("result-container").className = 'result-container';
+            }
+        }
+    </script>
+</body>
+</html>
